@@ -1,0 +1,4 @@
+# Mismas versiones que el Lab 07 (requirements.txt del lab) — Python >= 3.10, en .venv
+happybase>=1.3
+redis>=5
+pandas>=2

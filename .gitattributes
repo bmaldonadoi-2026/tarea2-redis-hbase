@@ -1,0 +1,6 @@
+# Los scripts se ejecutan en Linux (contenedor HBase, WSL, Git Bash): siempre con LF.
+*.sh  text eol=lf
+*.py  text eol=lf
+*.yml text eol=lf
+*.xml text eol=lf
+Dockerfile text eol=lf

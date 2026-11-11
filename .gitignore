@@ -1,0 +1,51 @@
+# ---- Datos: NUNCA se versionan (se regeneran con la semilla 2026) ----
+*.parquet
+*.csv
+*.tsv
+*.json
+*.jsonl
+*.pkl
+*.pickle
+*.feather
+*.npz
+*.npy
+*.h5
+*.hdf5
+*.db
+*.sqlite
+*.rdb
+*.aof
+appendonlydir/
+dump*.rdb
+data/
+datos/
+volumes/
+hbase-data/
+redis-data/
+
+# ---- Resultados y logs generados por run.sh ----
+resultados/*
+!resultados/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# ---- Secretos ----
+.env
+.env.*
+*.pem
+*.key
+secrets/
+
+# ---- Python / Jupyter ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+
+# ---- Sistema / editores ----
+.DS_Store
+.idea/
+.vscode/
+*.swp

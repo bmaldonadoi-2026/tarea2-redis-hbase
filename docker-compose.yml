@@ -1,0 +1,80 @@
+# Tarea 2 — Redis + HBase: del stream a la historia
+#
+#   docker compose build            # una vez por máquina (descarga HBase, ~340 MB)
+#   docker compose up -d --wait     # espera a que AMBOS healthchecks pasen
+#
+# Nombre de proyecto fijo: los volúmenes se llaman siempre t2-redis-hbase_redis-data
+# y t2-redis-hbase_hbase-data, sin depender del nombre de la carpeta clonada.
+name: t2-redis-hbase
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: t2-redis
+    # ------------------------------------------------------------------
+    # DECISIÓN DE PERSISTENCIA (justificada en README.md, §Persistencia):
+    #   AOF activado, appendfsync everysec, RDB desactivado (--save "").
+    #
+    #   * El stream sensores:t2 y la PEL (pendientes) de cada consumer group
+    #     son la ÚNICA copia de los eventos que todavía no llegan a HBase.
+    #     Sin persistencia, un reinicio los borra y además borra los grupos
+    #     (los consumidores fallan con NOGROUP).
+    #   * everysec: como mucho ~1 s de escrituras perdidas ante un crash
+    #     (≈40 eventos a 20x, ≈2 eventos al ritmo real); en un reinicio
+    #     ordenado (SIGTERM) Redis hace fsync al apagarse: pérdida 0.
+    #   * --save "" deja la decisión limpia (solo AOF) y hace que el
+    #     experimento D.2 compare exactamente "AOF" contra "nada".
+    #   * noeviction: Redis NUNCA debe desalojar el stream para hacer espacio.
+    #
+    # Para D.2 se cambia sin editar el archivo:
+    #   REDIS_APPENDONLY=no docker compose up -d --force-recreate --wait redis
+    # ------------------------------------------------------------------
+    command:
+      - redis-server
+      - --appendonly
+      - "${REDIS_APPENDONLY:-yes}"
+      - --appendfsync
+      - "${REDIS_APPENDFSYNC:-everysec}"
+      - --save
+      - ""
+      - --maxmemory-policy
+      - noeviction
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      # PING devuelve "LOADING" mientras se reproduce el AOF: exigimos PONG.
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  hbase:
+    # Dockerfile del Lab 07 sin cambios (HBase 2.5.15 standalone + Thrift).
+    # Misma imagen que el lab (pmd-hbase): si ya la construyeron, el build usa la caché.
+    build: ./hbase
+    image: pmd-hbase
+    container_name: t2-hbase
+    hostname: t2-hbase              # HBase registra su host en ZooKeeper: que sea fijo
+    ports:
+      - "127.0.0.1:9090:9090"       # Thrift: happybase
+      - "127.0.0.1:16010:16010"     # UI del HMaster + /jmx (métricas por región, P5)
+    volumes:
+      - t2-hbase-data:/data         # volumen propio: no se mezcla con las tablas del Lab 07
+    healthcheck:
+      # El del Lab 07 (hbase:meta en línea) + que Thrift ya acepte conexiones,
+      # porque el CMD arranca Thrift DESPUÉS de start-hbase.sh.
+      test: ["CMD-SHELL", "echo \"exists 'hbase:meta'\" | hbase shell -n 2>/dev/null | grep -q 'does exist' && bash -c 'echo > /dev/tcp/127.0.0.1/9090'"]
+      interval: 10s
+      timeout: 30s
+      retries: 18
+      start_period: 20s
+    stop_grace_period: 60s          # el trap del CMD hace stop-hbase.sh: vacía MemStores a disco
+
+volumes:
+  redis-data:
+    name: t2-redis-data
+  t2-hbase-data:
+    name: t2-hbase-data
